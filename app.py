@@ -1,36 +1,43 @@
 from taipy.gui import Gui
 from PIL import Image
-import os
+import numpy as np
+import tensorflow as tf
+
+# Load MobileNet model once
+model = tf.keras.applications.MobileNetV2(weights="imagenet")
 
 image_path = None
-prediction = ""
 image_display = None
+prediction = ""
 
 def detect_object(state):
-    if state.image_path:
 
-        state.image_display = Image.open(state.image_path)
+    if state.image_path is None:
+        state.prediction = "Please upload an image."
+        return
 
-        filename = os.path.basename(state.image_path).lower()
+    img = Image.open(state.image_path)
+    state.image_display = img
 
-        if "dog" in filename:
-            state.prediction = "Detected Object: Dog"
-        elif "cat" in filename:
-            state.prediction = "Detected Object: Cat"
-        elif "car" in filename:
-            state.prediction = "Detected Object: Car"
-        elif "bottle" in filename:
-            state.prediction = "Detected Object: Bottle"
-        else:
-            state.prediction = "Detected Object: Unknown Object"
+    img = img.resize((224, 224))
+    img = np.array(img)
 
-    else:
-        state.prediction = "Please upload an image"
+    img = np.expand_dims(img, axis=0)
+    img = tf.keras.applications.mobilenet_v2.preprocess_input(img)
+
+    preds = model.predict(img)
+
+    decoded = tf.keras.applications.mobilenet_v2.decode_predictions(preds, top=1)[0]
+
+    label = decoded[0][1]
+    confidence = decoded[0][2]
+
+    state.prediction = f"Detected Object: {label} ({round(confidence*100,2)}%)"
 
 page = """
 # Image Object Detection Dashboard
 
-Upload an image and detect objects using machine learning.
+Upload an image and detect objects using Machine Learning.
 
 <|{image_path}|file_selector|extensions=.jpg,.png,.jpeg|label=Upload Image|>
 
